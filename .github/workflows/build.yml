@@ -1,54 +1,63 @@
 name: Build APK  
 on: [push]  
+
 jobs:  
   build:  
     runs-on: ubuntu-latest  
+
     steps:  
+      # Крок 1: Завантаження коду з репозиторію  
       - uses: actions/checkout@v4  
-      
-      # 1. Встановлюємо Python  
+
+      # Крок 2: Встановлення Python 3.11  
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
           python-version: '3.11'  
-      
-      # 2. Системні залежності (Java 8, Git, тощо)  
+
+      # Крок 3: Встановлення системних залежностей (Java 8, Git, тощо)  
       - name: Install system dependencies  
         run: |  
           sudo apt-get update  
           sudo apt-get install -y git zip unzip openjdk-8-jdk  
-      
-      # 3. Вибираємо Java 8 за замовчуванням  
+
+      # Крок 4: Налаштування Java 8 за замовчуванням  
       - name: Set Java 8 as default  
-        run: sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java  
-      
-      # 4. Приймаємо ліцензії Android  
+        run: |  
+          sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java  
+
+      # Крок 5: Прийняття ліцензій Android  
       - name: Accept Android licenses  
         run: |  
           mkdir -p $HOME/.android/licenses  
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > $HOME/.android/licenses/android-sdk-license  
           echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $HOME/.android/licenses/android-sdk-license  
-      
-      # 5. Встановлюємо Android SDK  
+
+      # Крок 6: Встановлення Android SDK та NDK  
       - name: Install Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
           build-tools: 34.0.0  
           ndk-version: 26.2.11394342  
-      
-      # 6. Встановлюємо Python-бібліотеки  
+          platforms: android-34  
+          extra-packages: |  
+            build-tools;34.0.0  
+            platform-tools  
+
+      # Крок 7: Встановлення Python-бібліотек (Cython, Buildozer)  
       - name: Install Python dependencies  
         run: |  
           pip install cython==0.29.36  
           pip install buildozer  
-      
-      # 7. Збираємо APK  
+
+      # Крок 8: Збірка APK з детальним виводом  
       - name: Build APK  
-        run: buildozer android debug  
-      
-      # 8. Завантажуємо артефакт  
+        run: |  
+          buildozer -v android debug  
+
+      # Крок 9: Завантаження APK як артефакту  
       - name: Upload APK  
         uses: actions/upload-artifact@v4  
         with:  
-          name: chatbot-apk  
+          name: ukr-chatbot-apk  
           path: bin/*.apk  
