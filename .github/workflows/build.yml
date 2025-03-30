@@ -8,12 +8,25 @@ jobs:
     steps:  
       - uses: actions/checkout@v4  
 
-      # 1. Встановлюємо Java 17 (замість Java 8)
-      - name: Set up Java 17  
-        uses: actions/setup-java@v4  
-        with:  
-          java-version: '17'  
-          distribution: 'temurin'  
+      # 1. Встановлюємо Java 17 з JAXB
+      - name: Set up Java with JAXB  
+        run: |  
+          sudo apt-get update  
+          
+          # Встановлюємо Java 17
+          sudo apt-get install -y openjdk-17-jdk  
+          
+          # Завантажуємо JAXB для Java 9+
+          wget https://repo1.maven.org/maven2/javax/xml/bind/jaxb-api/2.3.1/jaxb-api-2.3.1.jar  
+          wget https://repo1.maven.org/maven2/com/sun/xml/bind/jaxb-core/2.3.0.1/jaxb-core-2.3.0.1.jar  
+          wget https://repo1.maven.org/maven2/com/sun/xml/bind/jaxb-impl/2.3.1/jaxb-impl-2.3.1.jar  
+          
+          # Створюємо папку для JAXB
+          sudo mkdir -p /usr/share/java/jaxb  
+          sudo mv *.jar /usr/share/java/jaxb/  
+          
+          # Встановлюємо змінну середовища
+          echo "CLASSPATH=/usr/share/java/jaxb/*" >> $GITHUB_ENV  
 
       # 2. Ліцензії Android  
       - name: Accept Android licenses  
@@ -22,7 +35,7 @@ jobs:
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/licenses/android-sdk-license  
           echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.android/licenses/android-sdk-license  
 
-      # 3. Встановлюємо Android SDK з новими CLI Tools
+      # 3. Встановлюємо Android SDK  
       - name: Install Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
@@ -34,13 +47,13 @@ jobs:
             platform-tools  
             tools  
 
-      # 4. Python 3.11
+      # 4. Python 3.11  
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
           python-version: '3.11'  
 
-      # 5. Встановлюємо Cython та Buildozer  
+      # 5. Встановлюємо залежності Python  
       - name: Install Python dependencies  
         run: |  
           pip install cython==0.29.36  
@@ -48,7 +61,8 @@ jobs:
 
       # 6. Збірка APK  
       - name: Build APK  
-        run: buildozer -v android debug  
+        run: |  
+          buildozer -v android debug  
 
       # 7. Завантаження APK  
       - name: Upload APK  
@@ -56,5 +70,3 @@ jobs:
         with:  
           name: ukr-chatbot  
           path: bin/*.apk  
-      - name: Debug environment  
-        run: env  
