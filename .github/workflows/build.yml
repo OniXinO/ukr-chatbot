@@ -8,33 +8,24 @@ jobs:
     steps:  
       - uses: actions/checkout@v4  
 
-      # 1. Python 3.11
-      - name: Set up Python  
-        uses: actions/setup-python@v4  
+      # 1. Встановлюємо Java 17 (замість Java 8)
+      - name: Set up Java 17  
+        uses: actions/setup-java@v4  
         with:  
-          python-version: '3.11'  
+          java-version: '17'  
+          distribution: 'temurin'  
 
-      # 2. Примусово встановлюємо Java 8
-      - name: Force Java 8 environment  
-        run: |  
-          sudo apt-get update  
-          sudo apt-get install -y openjdk-8-jdk  
-          sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java  
-          sudo update-alternatives --set javac /usr/lib/jvm/java-8-openjdk-amd64/bin/javac  
-          echo "JAVA_HOME=/usr/lib/jvm/java-8-openjdk-amd64" >> $GITHUB_ENV  
-
-      # 3. Ліцензії Android  
+      # 2. Ліцензії Android  
       - name: Accept Android licenses  
         run: |  
           mkdir -p ~/.android/licenses  
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/licenses/android-sdk-license  
           echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.android/licenses/android-sdk-license  
 
-      # 4. SDK з альтернативним шляхом
+      # 3. Встановлюємо Android SDK з новими CLI Tools
       - name: Install Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
-          sdk-root: ${{ github.workspace }}/custom-android-sdk  
           build-tools: 34.0.0  
           ndk-version: 26.2.11394342  
           platforms: android-34  
@@ -43,31 +34,27 @@ jobs:
             platform-tools  
             tools  
 
-      # 5. Оновлюємо змінні середовища
-      - name: Configure Android paths  
-        run: |  
-          echo "ANDROID_HOME=${{ github.workspace }}/custom-android-sdk" >> $GITHUB_ENV  
-          echo "ANDROID_SDK_ROOT=${{ github.workspace }}/custom-android-sdk" >> $GITHUB_ENV  
-          echo "PATH=${{ github.workspace }}/custom-android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV  
+      # 4. Python 3.11
+      - name: Set up Python  
+        uses: actions/setup-python@v4  
+        with:  
+          python-version: '3.11'  
 
-      # 6. Встановлюємо Cython та Buildozer  
+      # 5. Встановлюємо Cython та Buildozer  
       - name: Install Python dependencies  
         run: |  
           pip install cython==0.29.36  
           pip install buildozer  
 
-      # 7. Збірка з детальним логуванням  
+      # 6. Збірка APK  
       - name: Build APK  
-        run: |  
-          buildozer -v android debug 2>&1 | tee build.log  
-          ls -lR ${{ github.workspace }}/custom-android-sdk  # Діагностика SDK  
+        run: buildozer -v android debug  
 
-      # 8. Завантаження артефактів  
-      - name: Upload artifacts  
+      # 7. Завантаження APK  
+      - name: Upload APK  
         uses: actions/upload-artifact@v4  
         with:  
-          name: debug-data  
-          path: |  
-            bin/  
-            .buildozer/  
-            build.log  
+          name: ukr-chatbot  
+          path: bin/*.apk  
+- name: Debug environment  
+  run: env  
