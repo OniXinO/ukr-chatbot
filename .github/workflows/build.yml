@@ -8,25 +8,23 @@ jobs:
     steps:  
       - uses: actions/checkout@v4  
 
-      # 1. Встановлюємо Java 17 з JAXB
+      # 1. Встановлюємо Java 17 з JAXB і коректним CLASSPATH
       - name: Set up Java with JAXB  
         run: |  
           sudo apt-get update  
-          
-          # Встановлюємо Java 17
           sudo apt-get install -y openjdk-17-jdk  
           
-          # Завантажуємо JAXB для Java 9+
-          wget https://repo1.maven.org/maven2/javax/xml/bind/jaxb-api/2.3.1/jaxb-api-2.3.1.jar  
-          wget https://repo1.maven.org/maven2/com/sun/xml/bind/jaxb-core/2.3.0.1/jaxb-core-2.3.0.1.jar  
-          wget https://repo1.maven.org/maven2/com/sun/xml/bind/jaxb-impl/2.3.1/jaxb-impl-2.3.1.jar  
+          # Завантажуємо JAXB API та імплементацію
+          wget https://repo1.maven.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/4.0.1/jakarta.xml.bind-api-4.0.1.jar  
+          wget https://repo1.maven.org/maven2/com/sun/activation/jakarta.activation/2.0.1/jakarta.activation-2.0.1.jar  
+          wget https://repo1.maven.org/maven2/org/glassfish/jaxb/jaxb-runtime/4.0.4/jaxb-runtime-4.0.4.jar  
           
           # Створюємо папку для JAXB
           sudo mkdir -p /usr/share/java/jaxb  
           sudo mv *.jar /usr/share/java/jaxb/  
           
-          # Встановлюємо змінну середовища
-          echo "CLASSPATH=/usr/share/java/jaxb/*" >> $GITHUB_ENV  
+          # Встановлюємо змінну середовища з коректними шляхами
+          echo "CLASSPATH=/usr/share/java/jaxb/jakarta.xml.bind-api-4.0.1.jar:/usr/share/java/jaxb/jakarta.activation-2.0.1.jar:/usr/share/java/jaxb/jaxb-runtime-4.0.4.jar" >> $GITHUB_ENV  
 
       # 2. Ліцензії Android  
       - name: Accept Android licenses  
@@ -35,14 +33,14 @@ jobs:
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/licenses/android-sdk-license  
           echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.android/licenses/android-sdk-license  
 
-      # 3. Встановлюємо Android SDK  
+      # 3. Встановлюємо Android SDK з фіксованою версією cmdline-tools
       - name: Install Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
           build-tools: 34.0.0  
           ndk-version: 26.2.11394342  
           platforms: android-34  
-          cmdline-tools: "latest"  
+          cmdline-tools: "11.0"  # Використовуємо стабільну версію замість "latest"
           extra-packages: |  
             platform-tools  
             tools  
@@ -59,12 +57,20 @@ jobs:
           pip install cython==0.29.36  
           pip install buildozer  
 
-      # 6. Збірка APK  
+      # 6. Діагностика середовища
+      - name: Debug environment  
+        run: |  
+          echo "JAVA_HOME: $JAVA_HOME"  
+          echo "CLASSPATH: $CLASSPATH"  
+          ls -l /usr/share/java/jaxb  
+          $ANDROID_HOME/cmdline-tools/11.0/bin/sdkmanager --list  
+
+      # 7. Збірка APK  
       - name: Build APK  
         run: |  
           buildozer -v android debug  
 
-      # 7. Завантаження APK  
+      # 8. Завантаження APK  
       - name: Upload APK  
         uses: actions/upload-artifact@v4  
         with:  
