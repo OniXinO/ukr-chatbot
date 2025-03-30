@@ -15,11 +15,6 @@ jobs:
           sudo apt-get install -y git zip openjdk-17-jdk unzip  
       - name: Install Buildozer  
         run: pip install buildozer  
-      - name: Generate Buildozer spec  
-        run: |  
-          buildozer init  
-          echo "android.sdk_path = $HOME/.buildozer/android/platform/android-sdk" >> buildozer.spec  
-          echo "android.ndk_path = $HOME/.buildozer/android/platform/android-ndk" >> buildozer.spec  
       - name: Build APK  
         run: |  
           buildozer android debug  
