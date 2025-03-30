@@ -5,4 +5,4 @@ package.domain = org.ukr
 source.dir = .  
 version = 1.0  
 requirements = python3, kivy, cython==0.29.36  
-android.permissions = INTERNET  
+android.permissions = INTERNET 
