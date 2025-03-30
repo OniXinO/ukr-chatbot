@@ -13,3 +13,6 @@ android.permissions = INTERNET
 
 [buildozer]  
 log_level = 2  
+android.sdk = 34  
+android.ndk = 26.2.11394342  
+android.build_tools = 34.0.0  
