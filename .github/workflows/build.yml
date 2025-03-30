@@ -6,56 +6,62 @@ jobs:
     runs-on: ubuntu-latest  
 
     steps:  
-      # Крок 1: Завантаження коду з репозиторію  
       - uses: actions/checkout@v4  
 
-      # Крок 2: Встановлення Python 3.11  
+      # 1. Python 3.11
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
           python-version: '3.11'  
 
-      # Крок 3: Встановлення системних залежностей (Java 8, Git, тощо)  
+      # 2. Системні залежності  
       - name: Install system dependencies  
         run: |  
           sudo apt-get update  
           sudo apt-get install -y git zip unzip openjdk-8-jdk  
 
-      # Крок 4: Налаштування Java 8 за замовчуванням  
+      # 3. Java 8 за замовчуванням  
       - name: Set Java 8 as default  
         run: |  
           sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java  
 
-      # Крок 5: Прийняття ліцензій Android  
+      # 4. Ліцензії Android  
       - name: Accept Android licenses  
         run: |  
           mkdir -p $HOME/.android/licenses  
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > $HOME/.android/licenses/android-sdk-license  
           echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $HOME/.android/licenses/android-sdk-license  
 
-      # Крок 6: Встановлення Android SDK та NDK  
+      # 5. SDK Manager  
+      - name: Install Android Command Line Tools  
+        run: |  
+          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip  
+          unzip commandlinetools-linux-9477386_latest.zip -d $HOME/android-tools  
+          yes | $HOME/android-tools/cmdline-tools/bin/sdkmanager --sdk_root=$ANDROID_HOME --install "platform-tools" "build-tools;34.0.0"  
+        env:  
+          ANDROID_HOME: /usr/local/lib/android/sdk  
+
+      # 6. Android SDK  
       - name: Install Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
           build-tools: 34.0.0  
           ndk-version: 26.2.11394342  
           platforms: android-34  
-          extra-packages: |  
-            build-tools;34.0.0  
-            platform-tools  
 
-      # Крок 7: Встановлення Python-бібліотек (Cython, Buildozer)  
+      # 7. Python-залежності  
       - name: Install Python dependencies  
         run: |  
           pip install cython==0.29.36  
           pip install buildozer  
 
-      # Крок 8: Збірка APK з детальним виводом  
+      # 8. Збірка APK  
       - name: Build APK  
         run: |  
+          export PATH=$PATH:$ANDROID_HOME/platform-tools  
           buildozer -v android debug  
 
-      # Крок 9: Завантаження APK як артефакту  
+      # 9. Завантаження APK  
       - name: Upload APK  
         uses: actions/upload-artifact@v4  
         with:  
