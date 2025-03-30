@@ -1,6 +1,6 @@
 [app]  
 title = Український ЧатБот  
-package.name = ukrchatbot  
+package.name = onixino  
 package.domain = org.ukr  
 source.dir = .  
 version = 1.0  
