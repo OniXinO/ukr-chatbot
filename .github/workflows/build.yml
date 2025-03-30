@@ -8,13 +8,13 @@ jobs:
     steps:  
       - uses: actions/checkout@v4  
 
-      # 1. Встановлюємо Java 17 з JAXB і коректним CLASSPATH
+      # 1. Встановлюємо Java 17 з коректними JAXB-бібліотеками
       - name: Set up Java with JAXB  
         run: |  
           sudo apt-get update  
           sudo apt-get install -y openjdk-17-jdk  
           
-          # Завантажуємо JAXB API та імплементацію
+          # Завантажуємо JAXB для Java 17+
           wget https://repo1.maven.org/maven2/jakarta/xml/bind/jakarta.xml.bind-api/4.0.1/jakarta.xml.bind-api-4.0.1.jar  
           wget https://repo1.maven.org/maven2/com/sun/activation/jakarta.activation/2.0.1/jakarta.activation-2.0.1.jar  
           wget https://repo1.maven.org/maven2/org/glassfish/jaxb/jaxb-runtime/4.0.4/jaxb-runtime-4.0.4.jar  
@@ -23,8 +23,9 @@ jobs:
           sudo mkdir -p /usr/share/java/jaxb  
           sudo mv *.jar /usr/share/java/jaxb/  
           
-          # Встановлюємо змінну середовища з коректними шляхами
-          echo "CLASSPATH=/usr/share/java/jaxb/jakarta.xml.bind-api-4.0.1.jar:/usr/share/java/jaxb/jakarta.activation-2.0.1.jar:/usr/share/java/jaxb/jaxb-runtime-4.0.4.jar" >> $GITHUB_ENV  
+          # Встановлюємо змінні середовища
+          echo "JAVA_HOME=/usr/lib/jvm/temurin-17-jdk-amd64" >> $GITHUB_ENV  
+          echo "CLASSPATH=/usr/share/java/jaxb/*" >> $GITHUB_ENV  
 
       # 2. Ліцензії Android  
       - name: Accept Android licenses  
@@ -33,37 +34,36 @@ jobs:
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/licenses/android-sdk-license  
           echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.android/licenses/android-sdk-license  
 
-      # 3. Встановлюємо Android SDK з фіксованою версією cmdline-tools
+      # 3. Встановлюємо Android SDK зі стабільною версією cmdline-tools
       - name: Install Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
           build-tools: 34.0.0  
           ndk-version: 26.2.11394342  
           platforms: android-34  
-          cmdline-tools: "11.0"  # Використовуємо стабільну версію замість "latest"
+          cmdline-tools: "7.0"  # Використовуємо перевірену версію
           extra-packages: |  
             platform-tools  
             tools  
 
-      # 4. Python 3.11  
+      # 4. Перевіряємо встановлені компоненти SDK
+      - name: Check Android SDK structure  
+        run: |  
+          echo "ANDROID_HOME: $ANDROID_HOME"  
+          ls -l $ANDROID_HOME/cmdline-tools  
+          $ANDROID_HOME/cmdline-tools/7.0/bin/sdkmanager --list  
+
+      # 5. Встановлюємо Python 3.11  
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
           python-version: '3.11'  
 
-      # 5. Встановлюємо залежності Python  
+      # 6. Встановлюємо залежності Python  
       - name: Install Python dependencies  
         run: |  
           pip install cython==0.29.36  
           pip install buildozer  
-
-      # 6. Діагностика середовища
-      - name: Debug environment  
-        run: |  
-          echo "JAVA_HOME: $JAVA_HOME"  
-          echo "CLASSPATH: $CLASSPATH"  
-          ls -l /usr/share/java/jaxb  
-          $ANDROID_HOME/cmdline-tools/11.0/bin/sdkmanager --list  
 
       # 7. Збірка APK  
       - name: Build APK  
