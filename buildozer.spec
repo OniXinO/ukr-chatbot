@@ -7,7 +7,7 @@ version = 1.0  # Версія
 requirements = python3, kivy, cython==0.29.36  # Залежності  
 
 # Додатково:  
-orientation = portrait  # Орієнтація екрана  
+orientation = portrait    
 log_level = 2  # Рівень логування (2 — детальний)  
 android.permissions = INTERNET  # Дозволи  
 
