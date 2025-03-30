@@ -12,18 +12,23 @@ jobs:
       - name: Install system deps  
         run: |  
           sudo apt-get update  
-          sudo apt-get install -y git zip openjdk-17-jdk unzip python3-venv  
-          pip install cython==0.29.36  # Фіксована версія, щоб уникнути збоїв  
-      - name: Install Buildozer  
-        run: pip install buildozer  
+          sudo apt-get install -y git zip openjdk-17-jdk unzip  
+      - name: Accept Android licenses  
+        run: |  
+          mkdir -p ~/.android  
+          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/licenses/android-sdk-license  
+          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.android/licenses/android-sdk-license  
+      - name: Install Android SDK  
+        run: |  
+          yes | $ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platforms;android-34"  
+        env:  
+          ANDROID_HOME: /usr/local/lib/android/sdk  
       - name: Build APK  
         run: |  
+          pip install buildozer  
           buildozer android debug  
       - name: Upload APK  
         uses: actions/upload-artifact@v4  
         with:  
           name: chatbot-apk  
           path: bin/*.apk  
-- name: Install Android SDK  
-  run: |  
-    echo "y" | $HOME/.buildozer/android/platform/android-sdk/cmdline-tools/latest/bin/sdkmanager "build-tools;34.0.0" "platforms;android-34"  
