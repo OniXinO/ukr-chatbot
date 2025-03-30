@@ -8,62 +8,67 @@ jobs:
     steps:  
       - uses: actions/checkout@v4  
 
-      # 1. Python 3.11
+      # 1. Встановлення Python
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
           python-version: '3.11'  
 
-      # 2. Системні залежності  
+      # 2. Системні залежності (Java 8 + інше)
       - name: Install system dependencies  
         run: |  
           sudo apt-get update  
           sudo apt-get install -y git zip unzip openjdk-8-jdk  
 
-      # 3. Java 8 за замовчуванням  
-      - name: Set Java 8 as default  
+      # 3. Фіксуємо Java 8 як основну версію
+      - name: Force Java 8  
         run: |  
           sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java  
+          sudo update-alternatives --set javac /usr/lib/jvm/java-8-openjdk-amd64/bin/javac  
 
-      # 4. Ліцензії Android  
+      # 4. Приймаємо ліцензії Android
       - name: Accept Android licenses  
         run: |  
           mkdir -p $HOME/.android/licenses  
           echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > $HOME/.android/licenses/android-sdk-license  
           echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> $HOME/.android/licenses/android-sdk-license  
 
-      # 5. SDK Manager  
-      - name: Install Android Command Line Tools  
-        run: |  
-          wget https://dl.google.com/android/repository/commandlinetools-linux-9477386_latest.zip  
-          unzip commandlinetools-linux-9477386_latest.zip -d $HOME/android-tools  
-          yes | $HOME/android-tools/cmdline-tools/bin/sdkmanager --sdk_root=$ANDROID_HOME --install "platform-tools" "build-tools;34.0.0"  
-        env:  
-          ANDROID_HOME: /usr/local/lib/android/sdk  
-
-      # 6. Android SDK  
+      # 5. Встановлюємо Android SDK з правильними шляхами
       - name: Install Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
+          sdk-root: ${{ github.workspace }}/android-sdk  # Новий шлях без конфліктів
           build-tools: 34.0.0  
           ndk-version: 26.2.11394342  
           platforms: android-34  
+          cmdline-tools: latest  # Критично важливо!
+          extra-packages: |  
+            platform-tools  
+            tools  
 
-      # 7. Python-залежності  
+      # 6. Оновлюємо змінні середовища
+      - name: Set Android environment  
+        run: |  
+          echo "ANDROID_HOME=${{ github.workspace }}/android-sdk" >> $GITHUB_ENV  
+          echo "ANDROID_SDK_ROOT=${{ github.workspace }}/android-sdk" >> $GITHUB_ENV  
+          echo "PATH=${{ github.workspace }}/android-sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV  
+
+      # 7. Python-залежності
       - name: Install Python dependencies  
         run: |  
           pip install cython==0.29.36  
           pip install buildozer  
 
-      # 8. Збірка APK  
+      # 8. Збірка APK з детальним логуванням
       - name: Build APK  
         run: |  
-          export PATH=$PATH:$ANDROID_HOME/platform-tools  
-          buildozer -v android debug  
+          buildozer -v android debug 2>&1 | tee build.log  
 
-      # 9. Завантаження APK  
-      - name: Upload APK  
+      # 9. Завантаження артефактів
+      - name: Upload artifacts  
         uses: actions/upload-artifact@v4  
         with:  
-          name: ukr-chatbot-apk  
-          path: bin/*.apk  
+          name: build-artifacts  
+          path: |  
+            bin/*.apk  
+            build.log  
