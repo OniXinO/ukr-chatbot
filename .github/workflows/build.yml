@@ -9,11 +9,17 @@ jobs:
         uses: actions/setup-python@v4  
         with:  
           python-version: '3.11'  
-      - name: Install dependencies  
+      - name: Install system deps  
         run: |  
           sudo apt-get update  
-          sudo apt-get install -y git zip openjdk-17-jdk  
-          pip install buildozer  
+          sudo apt-get install -y git zip openjdk-17-jdk unzip  
+      - name: Install Buildozer  
+        run: pip install buildozer  
+      - name: Generate Buildozer spec  
+        run: |  
+          buildozer init  
+          echo "android.sdk_path = $HOME/.buildozer/android/platform/android-sdk" >> buildozer.spec  
+          echo "android.ndk_path = $HOME/.buildozer/android/platform/android-ndk" >> buildozer.spec  
       - name: Build APK  
         run: |  
           buildozer android debug  
