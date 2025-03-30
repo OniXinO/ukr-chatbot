@@ -56,5 +56,5 @@ jobs:
         with:  
           name: ukr-chatbot  
           path: bin/*.apk  
-- name: Debug environment  
-  run: env  
+      - name: Debug environment  
+        run: env  
