@@ -9,13 +9,13 @@ jobs:
         uses: actions/setup-python@v4  
         with:  
           python-version: "3.11"  
-      - name: Install Android SDK  
-        uses: android-actions/setup-android@v2  
-        with:  
-          build-tools: 34.0.0  
-          ndk-version: 26.2.11394342  
-          platforms: android-34  
-          cmake-version: 3.22.1  
+- name: Install Android SDK
+  uses: android-actions/setup-android@v2
+  with:
+    build-tools: 34.0.0
+    ndk-version: 26.2.11394342
+    platforms: android-34
+    jdk-version: 8  # Додайте цей рядок 
       - name: Force SDK paths  
         run: |  
           mkdir -p $HOME/.buildozer/android/platform  
