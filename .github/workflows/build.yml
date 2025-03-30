@@ -8,14 +8,17 @@ jobs:
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
-          python-version: "3.11"  
+          python-version: "3.11" 
+          - name: Install JAXB  
+  run: pip install jaxb  
+          - name: Install Java 8
+  run: sudo apt-get install -y openjdk-8-jdk
 - name: Install Android SDK
   uses: android-actions/setup-android@v2
   with:
+    jdk-version: 8  # Це ключовий рядок
     build-tools: 34.0.0
     ndk-version: 26.2.11394342
-    platforms: android-34
-    jdk-version: 8  # Додайте цей рядок 
       - name: Force SDK paths  
         run: |  
           mkdir -p $HOME/.buildozer/android/platform  
