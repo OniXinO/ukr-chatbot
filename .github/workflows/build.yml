@@ -21,7 +21,10 @@ jobs:
             python3-pip autoconf libtool \
             pkg-config zlib1g-dev ncurses-dev \
             libssl-dev libffi-dev  
-
+- name: Debug paths
+  run: |
+    ls -la ~/.buildozer/android/platform
+    ls -la $HOME/.local/lib/python3.11/site-packages/python_for_android
       - name: Setup Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
