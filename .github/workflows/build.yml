@@ -43,22 +43,28 @@ jobs:
           source venv/bin/activate  
           pip install cython==0.29.36  
           pip install buildozer==1.5.0  
-          pip install python-for-android==2023.9.16  # Актуальна версія
+          pip install python-for-android==2023.9.16  
 
       - name: Initialize Buildozer  
         run: |  
           source venv/bin/activate  
+          rm -f buildozer.spec  # Критично важливий крок
           buildozer init --force  
-          sed -i "s|^p4a.branch = .*|p4a.branch = 2023.09.16|" buildozer.spec  # Оновлюємо гілку
+          if [ ! -f buildozer.spec ]; then  
+            echo "::error::buildozer.spec creation failed!"  
+            exit 1  
+          fi  
+          sed -i "s|^p4a.branch = .*|p4a.branch = 2023.09.16|" buildozer.spec  
           sed -i "s|android.sdk_path = .*|android.sdk_path = /usr/local/lib/android/sdk|" buildozer.spec  
           sed -i "s|android.ndk_path = .*|android.ndk_path = /usr/local/lib/android/sdk/ndk/25.2.9519653|" buildozer.spec  
+          cat buildozer.spec  # Для дебагінгу
 
       - name: Build APK  
         run: |  
           source venv/bin/activate  
           buildozer -v android clean  
           buildozer -v android debug \
-            --p4a-version 2023.9.16 \  # Відповідає встановленій версії
+            --p4a-version 2023.9.16 \
             --sdk-dir $ANDROID_HOME \
             --ndk-dir $ANDROID_NDK_HOME \
             2>&1 | tee build.log  
