@@ -47,7 +47,11 @@ jobs:
           pip install cython==0.29.36  
           pip install buildozer==1.5.0  
 
-      # Let buildozer manage python-for-android directly instead of copying it
+      - name: Setup python-for-android
+        run: |
+          mkdir -p .buildozer/android/platform
+          git clone --branch 2023.09.16 --depth 1 https://github.com/kivy/python-for-android.git .buildozer/android/platform/python-for-android
+          
       - name: Build APK  
         run: |  
           source venv/bin/activate  
