@@ -11,15 +11,13 @@ jobs:
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
-          python-version: '3.9'  # Use Python 3.9 instead of 3.11
+          python-version: '3.9'
 
       - name: Debug Environment
         run: |
           java -version
           javac -version
           echo "JAVA_HOME: $JAVA_HOME"
-          echo "ANDROID_HOME: $ANDROID_HOME"
-          echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
           python --version
           pip --version
 
@@ -29,7 +27,7 @@ jobs:
           sudo apt-get install -y \
             git zip unzip openjdk-11-jdk \
             python3-pip autoconf libtool \
-            pkg-config zlib1g-dev ncurses-dev \
+            pkg-config zlib1g-dev libncurses5-dev \
             build-essential libffi-dev \
             libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
             libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
@@ -39,154 +37,144 @@ jobs:
         uses: android-actions/setup-android@v2  
         with:  
           sdk-root: /usr/local/lib/android/sdk  
-          build-tools: 33.0.2  
-          ndk-version: 25.2.9519653  
-          platforms: android-33  
-          cmdline-tools: 9.0  
+          build-tools: 29.0.3
+          ndk-version: 23.1.7779620
+          platforms: android-29
+          cmdline-tools: 8.0  
           extra-packages: |  
             platform-tools  
             tools  
 
+      - name: Show Android SDK/NDK details
+        run: |
+          echo "Android SDK location:"
+          ls -la $ANDROID_HOME
+          echo "Android NDK location:"
+          ls -la $ANDROID_HOME/ndk
+
       - name: Configure environment  
         run: |  
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV  
-          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/25.2.9519653" >> $GITHUB_ENV  
-          echo "PATH=$ANDROID_HOME/cmdline-tools/9.0/bin:$PATH" >> $GITHUB_ENV  
+          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/23.1.7779620" >> $GITHUB_ENV  
+          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV  
 
-      - name: Install Python tools  
+      - name: Install Python packages
         run: |  
           python -m pip install --upgrade pip wheel setuptools
-          python -m venv venv  
-          source venv/bin/activate  
-          # Install Cython first
-          pip install -U cython==0.29.36
-
-          # Install Kivy with minimal dependencies
-          pip install kivy==2.1.0 --no-build-isolation --no-deps
-          # Then install just the core dependencies
-          pip install docutils pygments pillow
-
-          # Verify Kivy installation
-          python -c "import kivy; print('Kivy import successful, version:', kivy.__version__)"
-
-          # Install Buildozer
-          pip install buildozer==1.5.0  
+          pip install cython==0.29.33
+          # Only install needed dependencies
+          pip install kivy==2.1.0
+          pip install buildozer==1.5.0
           
-          # Install python-for-android dependencies
-          pip install appdirs colorama jinja2 sh toml
+          # Test Kivy Import
+          python -c "import kivy; print('Kivy version:', kivy.__version__)"
           
-          # Show all installed packages
+          # Show installed packages
           pip list
 
-      - name: Setup python-for-android
+      - name: Create minimal buildozer.spec
         run: |
-          mkdir -p .buildozer/android/platform
-          git clone --branch v2023.09.16 --depth 1 https://github.com/kivy/python-for-android.git .buildozer/android/platform/python-for-android
-          cd .buildozer/android/platform/python-for-android
-          source /home/runner/work/ukr-chatbot/ukr-chatbot/venv/bin/activate
-          pip install -e .
-          
-      - name: Update buildozer.spec for minimal build
-        run: |
-          # Modify buildozer.spec to use absolute minimum dependencies
           cat > buildozer.spec << EOF
-          [app]  
-          title = Test App  
-          package.name = testapp  
-          package.domain = org.test  
-          source.dir = .  
+          [app]
+          title = Minimal App
+          package.name = minimal
+          package.domain = org.test
+          source.dir = .
           source.include_exts = py,png,jpg,kv,atlas
-          source.main.file = main.py
-          version = 1.0  
-          # Use minimal requirements
-          requirements = python3,kivy
-          p4a.branch = v2023.09.16
-          p4a.bootstrap = sdl2
-          android.api = 33
+          source.include_patterns = assets/*
+          source.exclude_dirs = tests, bin, .git
+          source.exclude_patterns = buildozer.spec
+          # Use the simplest file
+          source.main.file = minimal.py
+          version = 1.0
+          
+          # Simple requirements
+          requirements = python3,kivy==2.1.0
+          
+          # Explicitly set NDK/SDK versions
+          android.api = 29
           android.minapi = 21
-          # Use recommended NDK for this version
-          android.ndk = 25.2.9519653
+          android.ndk = 23.1.7779620
+          android.sdk = 29
           android.sdk_path = /usr/local/lib/android/sdk
-          android.ndk_path = /usr/local/lib/android/sdk/ndk/25.2.9519653 
-          android.permissions = INTERNET  
-          android.architectures = armeabi-v7a
+          android.ndk_path = /usr/local/lib/android/sdk/ndk/23.1.7779620
+          
+          # Use default bootstrap (sdl2)
+          android.bootstrap = sdl2
+          android.permissions = INTERNET
+          android.arch = armeabi-v7a
+          
+          # Basic graphics configuration
           orientation = portrait
-
+          fullscreen = 0
+          android.accept_sdk_license = True
+          
           [buildozer]
           log_level = 2
           warn_on_root = 1
           EOF
           
-          # Verify the updated spec
           cat buildozer.spec
 
-      - name: List files before build
+      - name: Verify all files
         run: |
+          echo "Current directory:"
           ls -la
-          cat main.py
+          echo "Checking minimal.py:"
+          cat minimal.py
+          echo "Checking buildozer.spec:"
+          cat buildozer.spec
 
-      - name: Clean any previous builds
+      - name: Clean environment
         run: |
-          source venv/bin/activate
-          rm -rf .buildozer/android/app || true
-          rm -rf bin/ || true
-          buildozer android clean
+          # Start from complete scratch
+          rm -rf ./.buildozer || true
+          rm -rf ./bin || true
 
-      - name: Build APK with debug logging
+      - name: Build APK with maximum verbosity
         run: |  
-          source venv/bin/activate  
-          # Try clean build with extremely verbose output
-          buildozer -v -v android debug 2>&1 | tee build.log  
+          echo "Starting build with maximum verbosity..."
+          buildozer -v -v android debug 2>&1 | tee build.log
 
-      - name: Check for Buildozer logs
+      - name: Check build log files
         if: always()
         run: |
-          echo "Looking for buildozer logs..."
-          find .buildozer -name "*.log" | xargs ls -la || echo "No log files found"
-          
-          # Try to show any log files
-          for logfile in $(find .buildozer -name "*.log"); do
-            echo "===== Contents of $logfile ====="
-            cat $logfile || echo "Failed to read $logfile"
-            echo "================================="
-          done
-
-      - name: Display Build Log Tail
-        if: always()
-        run: |
+          echo "=== BUILD LOG TAIL ==="
           if [ -f build.log ]; then
-            echo "Last 500 lines of build log:"
-            tail -n 500 build.log
+            tail -n 1000 build.log
           else
-            echo "Build log not found"
+            echo "build.log not found"
           fi
+          
+          echo "=== CHECKING FOR GRADLE LOGS ==="
+          find .buildozer -name "*.gradle" -o -name "gradle*" | xargs ls -la || echo "No gradle files found"
+          
+          echo "=== CHECKING FOR ADDITIONAL LOGS ==="
+          find .buildozer -name "*.log" | xargs ls -la || echo "No log files found"
 
-      - name: Check filesystem after build
+      - name: Check all locations for APK
         if: always()
         run: |
-          echo "Checking .buildozer directory:"
-          find .buildozer -type f -name "*.apk" | xargs ls -la || echo "No APK found in .buildozer"
-          ls -la bin/ || echo "Bin directory doesn't exist"
+          echo "Checking for APK files anywhere in the repository..."
           find . -name "*.apk" | xargs ls -la || echo "No APK found anywhere"
+          
+          echo "Checking bin directory:"
+          ls -la bin/ || echo "Bin directory doesn't exist"
+          
+          echo "Checking .buildozer app outputs:"
+          find .buildozer -path "*/app/build/outputs" -type d | xargs ls -la || echo "No outputs directory found"
 
-      - name: Check for APK
-        if: always()
-        run: |
-          if [ ! -f bin/*.apk ]; then  
-            echo "::error::APK file not found!"  
-            exit 1 
-          else
-            echo "APK found!"
-            ls -la bin/*.apk
-          fi  
-
-      - name: Upload artifacts  
+      - name: Upload all artifacts
         if: always()
         uses: actions/upload-artifact@v4  
         with:  
-          name: app-artifacts  
+          name: build-artifacts  
           path: |  
-            bin/*.apk  
+            *.py
+            buildozer.spec
             build.log
-            .buildozer/logs/**/*.log
-            .buildozer/android/app/build/outputs/**/*.apk
+            .buildozer/**/*.log
+            .buildozer/**/*.apk
+            .buildozer/android/app/build/outputs/**
+            bin/**
