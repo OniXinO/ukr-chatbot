@@ -48,23 +48,25 @@ jobs:
       - name: Initialize Buildozer  
         run: |  
           source venv/bin/activate  
-          rm -f buildozer.spec  # Критично важливий крок
+          rm -f buildozer.spec  
           buildozer init --force  
-          if [ ! -f buildozer.spec ]; then  
-            echo "::error::buildozer.spec creation failed!"  
-            exit 1  
-          fi  
           sed -i "s|^p4a.branch = .*|p4a.branch = 2023.09.16|" buildozer.spec  
           sed -i "s|android.sdk_path = .*|android.sdk_path = /usr/local/lib/android/sdk|" buildozer.spec  
           sed -i "s|android.ndk_path = .*|android.ndk_path = /usr/local/lib/android/sdk/ndk/25.2.9519653|" buildozer.spec  
-          cat buildozer.spec  # Для дебагінгу
+
+      - name: Prepare build environment  
+        run: |  
+          source venv/bin/activate  
+          mkdir -p .buildozer/android/platform  
+          ln -s $HOME/.local/lib/python3.11/site-packages/python_for_android .buildozer/android/platform/python-for-android  
+          ls -la .buildozer/android/platform  
 
       - name: Build APK  
         run: |  
           source venv/bin/activate  
           buildozer -v android clean  
           buildozer -v android debug \
-            --p4a-version 2023.9.16 \
+            --p4a-dir $HOME/.local/lib/python3.11/site-packages/python_for_android \
             --sdk-dir $ANDROID_HOME \
             --ndk-dir $ANDROID_NDK_HOME \
             2>&1 | tee build.log  
