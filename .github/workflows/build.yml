@@ -41,6 +41,14 @@ jobs:
             platform-tools  
             tools  
 
+      - name: Fix permissions
+        run: sudo chmod -R 755 ${{ github.workspace }}/android-sdk
+
+      - name: Update buildozer paths
+        run: |
+          sed -i "s|android.sdk_path = .*|android.sdk_path = ${{ github.workspace }}/android-sdk|" buildozer.spec
+          sed -i "s|android.ndk_path = .*|android.ndk_path = ${{ github.workspace }}/android-sdk/ndk/26.2.11394342|" buildozer.spec
+
       - name: Set Android environment  
         run: |  
           echo "ANDROID_HOME=${{ github.workspace }}/android-sdk" >> $GITHUB_ENV  
