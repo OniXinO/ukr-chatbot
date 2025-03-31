@@ -58,13 +58,25 @@ jobs:
           python -m pip install --upgrade pip wheel setuptools
           python -m venv venv  
           source venv/bin/activate  
+          # Install Cython first
           pip install -U cython==0.29.36
-          # Try to use prebuilt binary wheel for Kivy
-          pip install kivy==2.1.0 --no-build-isolation
+
+          # Install Kivy with minimal dependencies
+          pip install kivy==2.1.0 --no-build-isolation --no-deps
+          # Then install just the core dependencies
+          pip install docutils pygments pillow
+
+          # Verify Kivy installation
+          python -c "import kivy; print('Kivy import successful, version:', kivy.__version__)"
+
+          # Install Buildozer
           pip install buildozer==1.5.0  
+          
           # Install python-for-android dependencies
           pip install appdirs colorama jinja2 sh toml
-          pip list  # Show installed packages
+          
+          # Show all installed packages
+          pip list
 
       - name: Setup python-for-android
         run: |
@@ -74,17 +86,70 @@ jobs:
           source /home/runner/work/ukr-chatbot/ukr-chatbot/venv/bin/activate
           pip install -e .
           
+      - name: Update buildozer.spec for minimal build
+        run: |
+          # Modify buildozer.spec to use absolute minimum dependencies
+          cat > buildozer.spec << EOF
+          [app]  
+          title = Test App  
+          package.name = testapp  
+          package.domain = org.test  
+          source.dir = .  
+          source.include_exts = py,png,jpg,kv,atlas
+          source.main.file = main.py
+          version = 1.0  
+          # Use minimal requirements
+          requirements = python3,kivy
+          p4a.branch = v2023.09.16
+          p4a.bootstrap = sdl2
+          android.api = 33
+          android.minapi = 21
+          # Use recommended NDK for this version
+          android.ndk = 25.2.9519653
+          android.sdk_path = /usr/local/lib/android/sdk
+          android.ndk_path = /usr/local/lib/android/sdk/ndk/25.2.9519653 
+          android.permissions = INTERNET  
+          android.architectures = armeabi-v7a
+          orientation = portrait
+
+          [buildozer]
+          log_level = 2
+          warn_on_root = 1
+          EOF
+          
+          # Verify the updated spec
+          cat buildozer.spec
+
       - name: List files before build
         run: |
           ls -la
-          cat buildozer.spec
           cat main.py
+
+      - name: Clean any previous builds
+        run: |
+          source venv/bin/activate
+          rm -rf .buildozer/android/app || true
+          rm -rf bin/ || true
+          buildozer android clean
 
       - name: Build APK with debug logging
         run: |  
           source venv/bin/activate  
           # Try clean build with extremely verbose output
           buildozer -v -v android debug 2>&1 | tee build.log  
+
+      - name: Check for Buildozer logs
+        if: always()
+        run: |
+          echo "Looking for buildozer logs..."
+          find .buildozer -name "*.log" | xargs ls -la || echo "No log files found"
+          
+          # Try to show any log files
+          for logfile in $(find .buildozer -name "*.log"); do
+            echo "===== Contents of $logfile ====="
+            cat $logfile || echo "Failed to read $logfile"
+            echo "================================="
+          done
 
       - name: Display Build Log Tail
         if: always()
@@ -122,5 +187,6 @@ jobs:
           name: app-artifacts  
           path: |  
             bin/*.apk  
-            build.log  
+            build.log
+            .buildozer/logs/**/*.log
             .buildozer/android/app/build/outputs/**/*.apk
