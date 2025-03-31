@@ -16,3 +16,7 @@ android.ndk_path = /usr/local/lib/android/sdk/ndk/25.2.9519653
 android.permissions = INTERNET  
 android.architectures = arm64-v8a, armeabi-v7a
 orientation = portrait
+
+[buildozer]
+log_level = 2
+warn_on_root = 1
