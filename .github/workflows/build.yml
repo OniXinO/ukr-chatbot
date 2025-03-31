@@ -50,7 +50,7 @@ jobs:
       - name: Setup python-for-android
         run: |
           mkdir -p .buildozer/android/platform
-          git clone --branch 2023.09.16 --depth 1 https://github.com/kivy/python-for-android.git .buildozer/android/platform/python-for-android
+          git clone --branch v2023.09.16 --depth 1 https://github.com/kivy/python-for-android.git .buildozer/android/platform/python-for-android
           
       - name: Build APK  
         run: |  

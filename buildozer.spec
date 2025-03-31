@@ -7,7 +7,7 @@ source.include_exts = py,png,jpg,kv,atlas
 source.main.file = chatbot.py
 version = 1.0  
 requirements = python3, kivy, cython==0.29.36  
-p4a.branch = 2023.9.16
+p4a.branch = v2023.09.16
 p4a.bootstrap = sdl2
 android.api = 34
 android.minapi = 21
