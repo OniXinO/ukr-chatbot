@@ -19,7 +19,8 @@ jobs:
           sudo apt-get install -y \
             git zip unzip openjdk-8-jdk \
             python3-pip autoconf libtool \
-            pkg-config zlib1g-dev ncurses-dev  
+            pkg-config zlib1g-dev ncurses-dev \
+            libssl-dev libffi-dev  
 
       - name: Setup Android SDK  
         uses: android-actions/setup-android@v2  
@@ -29,6 +30,9 @@ jobs:
           ndk-version: 25.2.9519653  
           platforms: android-34  
           cmdline-tools: 9.0  
+          extra-packages: |  
+            platform-tools  
+            tools  
 
       - name: Configure environment  
         run: |  
@@ -45,6 +49,10 @@ jobs:
           pip install buildozer==1.5.0  
           pip install python-for-android==2023.9.16  
 
+          # Критично важливий крок - встановлення p4a в правильну директорію
+          mkdir -p ~/.buildozer/android/platform  
+          cp -r $HOME/.local/lib/python3.11/site-packages/python_for_android ~/.buildozer/android/platform/python-for-android  
+
       - name: Initialize Buildozer  
         run: |  
           source venv/bin/activate  
@@ -54,22 +62,19 @@ jobs:
           sed -i "s|android.sdk_path = .*|android.sdk_path = /usr/local/lib/android/sdk|" buildozer.spec  
           sed -i "s|android.ndk_path = .*|android.ndk_path = /usr/local/lib/android/sdk/ndk/25.2.9519653|" buildozer.spec  
 
-      - name: Prepare build environment  
-        run: |  
-          source venv/bin/activate  
-          mkdir -p .buildozer/android/platform  
-          ln -s $HOME/.local/lib/python3.11/site-packages/python_for_android .buildozer/android/platform/python-for-android  
-          ls -la .buildozer/android/platform  
-
       - name: Build APK  
         run: |  
           source venv/bin/activate  
           buildozer -v android clean  
-          buildozer -v android debug \
-            --p4a-dir $HOME/.local/lib/python3.11/site-packages/python_for_android \
-            --sdk-dir $ANDROID_HOME \
-            --ndk-dir $ANDROID_NDK_HOME \
-            2>&1 | tee build.log  
+          buildozer -v android debug 2>&1 | tee build.log  
+
+      - name: Verify build  
+        run: |  
+          if [ ! -f bin/*.apk ]; then  
+            echo "::error::APK file not found!"  
+            cat build.log  
+            exit 1  
+          fi  
 
       - name: Upload artifacts  
         uses: actions/upload-artifact@v4  
