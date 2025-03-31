@@ -11,7 +11,7 @@ jobs:
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
-          python-version: '3.11'  
+          python-version: '3.9'  # Use Python 3.9 instead of 3.11
 
       - name: Debug Environment
         run: |
@@ -20,7 +20,6 @@ jobs:
           echo "JAVA_HOME: $JAVA_HOME"
           echo "ANDROID_HOME: $ANDROID_HOME"
           echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
-          ls -la $ANDROID_HOME || echo "Android SDK not found"
           python --version
           pip --version
 
@@ -31,7 +30,10 @@ jobs:
             git zip unzip openjdk-11-jdk \
             python3-pip autoconf libtool \
             pkg-config zlib1g-dev ncurses-dev \
-            build-essential libffi-dev  
+            build-essential libffi-dev \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libpango1.0-dev libpangoft2-1.0-dev
 
       - name: Setup Android SDK  
         uses: android-actions/setup-android@v2  
@@ -56,11 +58,13 @@ jobs:
           python -m pip install --upgrade pip wheel setuptools
           python -m venv venv  
           source venv/bin/activate  
-          pip install cython==0.29.36  
-          pip install kivy==2.1.0
+          pip install -U cython==0.29.36
+          # Try to use prebuilt binary wheel for Kivy
+          pip install kivy==2.1.0 --no-build-isolation
           pip install buildozer==1.5.0  
           # Install python-for-android dependencies
           pip install appdirs colorama jinja2 sh toml
+          pip list  # Show installed packages
 
       - name: Setup python-for-android
         run: |
@@ -101,10 +105,14 @@ jobs:
           find . -name "*.apk" | xargs ls -la || echo "No APK found anywhere"
 
       - name: Check for APK
+        if: always()
         run: |
           if [ ! -f bin/*.apk ]; then  
             echo "::error::APK file not found!"  
-            exit 1  
+            exit 1 
+          else
+            echo "APK found!"
+            ls -la bin/*.apk
           fi  
 
       - name: Upload artifacts  
