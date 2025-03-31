@@ -11,83 +11,170 @@ jobs:
       - name: Set up Python  
         uses: actions/setup-python@v4  
         with:  
-          python-version: '3.11'  
+          python-version: '3.9'
+
+      - name: Debug Environment
+        run: |
+          java -version
+          javac -version
+          echo "JAVA_HOME: $JAVA_HOME"
+          python --version
+          pip --version
 
       - name: Install system dependencies  
         run: |  
           sudo apt-get update  
           sudo apt-get install -y \
-            git zip unzip openjdk-8-jdk \
+            git zip unzip openjdk-11-jdk \
             python3-pip autoconf libtool \
-            pkg-config zlib1g-dev ncurses-dev  
+            pkg-config zlib1g-dev libncurses5-dev \
+            build-essential libffi-dev \
+            libsdl2-dev libsdl2-image-dev libsdl2-mixer-dev libsdl2-ttf-dev \
+            libgstreamer1.0-dev libgstreamer-plugins-base1.0-dev \
+            libpango1.0-dev
 
       - name: Setup Android SDK  
         uses: android-actions/setup-android@v2  
         with:  
           sdk-root: /usr/local/lib/android/sdk  
-          build-tools: 34.0.0  
-          ndk-version: 25.2.9519653  
-          platforms: android-34  
-          cmdline-tools: 9.0  
+          build-tools: 29.0.3
+          ndk-version: 23.1.7779620
+          platforms: android-29
+          cmdline-tools: 8.0  
           extra-packages: |  
             platform-tools  
             tools  
 
+      - name: Show Android SDK/NDK details
+        run: |
+          echo "Android SDK location:"
+          ls -la $ANDROID_HOME
+          echo "Android NDK location:"
+          ls -la $ANDROID_HOME/ndk
+
       - name: Configure environment  
         run: |  
+          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV
           echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV  
-          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/25.2.9519653" >> $GITHUB_ENV  
-          echo "PATH=$ANDROID_HOME/cmdline-tools/9.0/bin:$PATH" >> $GITHUB_ENV  
+          echo "ANDROID_NDK_HOME=/usr/local/lib/android/sdk/ndk/23.1.7779620" >> $GITHUB_ENV  
+          echo "PATH=$ANDROID_HOME/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV  
 
-      - name: Install Python tools  
+      - name: Install Python packages
         run: |  
-          python -m pip install --upgrade pip wheel  
-          python -m venv venv  
-          source venv/bin/activate  
-          pip install cython==0.29.36  
-          pip install buildozer==1.5.0  
-          pip install python-for-android==2023.9.16  
+          python -m pip install --upgrade pip wheel setuptools
+          pip install cython==0.29.33
+          # Only install needed dependencies
+          pip install kivy==2.1.0
+          pip install buildozer==1.5.0
+          
+          # Test Kivy Import
+          python -c "import kivy; print('Kivy version:', kivy.__version__)"
+          
+          # Show installed packages
+          pip list
 
-      - name: Verify Python-for-Android Installation  
+      - name: Create minimal buildozer.spec
+        run: |
+          cat > buildozer.spec << EOF
+          [app]
+          title = Minimal App
+          package.name = minimal
+          package.domain = org.test
+          source.dir = .
+          source.include_exts = py,png,jpg,kv,atlas
+          source.include_patterns = assets/*
+          source.exclude_dirs = tests, bin, .git
+          source.exclude_patterns = buildozer.spec
+          # Use the simplest file
+          source.main.file = minimal.py
+          version = 1.0
+          
+          # Simple requirements
+          requirements = python3,kivy==2.1.0
+          
+          # Explicitly set NDK/SDK versions
+          android.api = 29
+          android.minapi = 21
+          android.ndk = 23.1.7779620
+          android.sdk = 29
+          android.sdk_path = /usr/local/lib/android/sdk
+          android.ndk_path = /usr/local/lib/android/sdk/ndk/23.1.7779620
+          
+          # Use default bootstrap (sdl2)
+          android.bootstrap = sdl2
+          android.permissions = INTERNET
+          android.arch = armeabi-v7a
+          
+          # Basic graphics configuration
+          orientation = portrait
+          fullscreen = 0
+          android.accept_sdk_license = True
+          
+          [buildozer]
+          log_level = 2
+          warn_on_root = 1
+          EOF
+          
+          cat buildozer.spec
+
+      - name: Verify all files
+        run: |
+          echo "Current directory:"
+          ls -la
+          echo "Checking minimal.py:"
+          cat minimal.py
+          echo "Checking buildozer.spec:"
+          cat buildozer.spec
+
+      - name: Clean environment
+        run: |
+          # Start from complete scratch
+          rm -rf ./.buildozer || true
+          rm -rf ./bin || true
+
+      - name: Build APK with maximum verbosity
         run: |  
-          source venv/bin/activate  
-          echo "Checking python-for-android installation..."  
-          ls -la $HOME/.local/lib/python3.11/site-packages/  # List installed packages
-          ls -la ~/.local/lib/python3.11/site-packages/python_for_android  # Check if p4a exists
+          echo "Starting build with maximum verbosity..."
+          buildozer -v -v android debug 2>&1 | tee build.log
 
-      - name: Initialize Buildozer  
-        run: |  
-          source venv/bin/activate  
-          rm -f buildozer.spec  
-          buildozer init --force  
-          sed -i "s|^p4a.branch = .*|p4a.branch = 2023.09.16|" buildozer.spec  
-          sed -i "s|android.sdk_path = .*|android.sdk_path = /usr/local/lib/android/sdk|" buildozer.spec  
-          sed -i "s|android.ndk_path = .*|android.ndk_path = /usr/local/lib/android/sdk/ndk/25.2.9519653|" buildozer.spec  
+      - name: Check build log files
+        if: always()
+        run: |
+          echo "=== BUILD LOG TAIL ==="
+          if [ -f build.log ]; then
+            tail -n 1000 build.log
+          else
+            echo "build.log not found"
+          fi
+          
+          echo "=== CHECKING FOR GRADLE LOGS ==="
+          find .buildozer -name "*.gradle" -o -name "gradle*" | xargs ls -la || echo "No gradle files found"
+          
+          echo "=== CHECKING FOR ADDITIONAL LOGS ==="
+          find .buildozer -name "*.log" | xargs ls -la || echo "No log files found"
 
-      - name: Prepare build environment  
-        run: |  
-          source venv/bin/activate  
-          mkdir -p .buildozer/android/platform  
-          cp -r $HOME/.local/lib/python3.11/site-packages/python_for_android .buildozer/android/platform/python-for-android  
+      - name: Check all locations for APK
+        if: always()
+        run: |
+          echo "Checking for APK files anywhere in the repository..."
+          find . -name "*.apk" | xargs ls -la || echo "No APK found anywhere"
+          
+          echo "Checking bin directory:"
+          ls -la bin/ || echo "Bin directory doesn't exist"
+          
+          echo "Checking .buildozer app outputs:"
+          find .buildozer -path "*/app/build/outputs" -type d | xargs ls -la || echo "No outputs directory found"
 
-      - name: Build APK  
-        run: |  
-          source venv/bin/activate  
-          buildozer -v android clean  
-          buildozer -v android debug 2>&1 | tee build.log  
-
-      - name: Verify build  
-        run: |  
-          if [ ! -f bin/*.apk ]; then  
-            echo "::error::APK file not found!"  
-            cat build.log  
-            exit 1  
-          fi  
-
-      - name: Upload artifacts  
+      - name: Upload all artifacts
+        if: always()
         uses: actions/upload-artifact@v4  
         with:  
-          name: app-artifacts  
+          name: build-artifacts  
           path: |  
-            bin/*.apk  
-            build.log  
+            *.py
+            buildozer.spec
+            build.log
+            .buildozer/**/*.log
+            .buildozer/**/*.apk
+            .buildozer/android/app/build/outputs/**
+            bin/**
