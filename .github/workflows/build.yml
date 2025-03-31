@@ -52,14 +52,17 @@ jobs:
         run: |  
           source venv/bin/activate  
           echo "Checking python-for-android installation..."  
-          ls -la $HOME/.local/lib/python3.11/site-packages/  # List installed packages
-          ls -la ~/.local/lib/python3.11/site-packages/python_for_android  # Check if p4a exists
+          SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
+          echo "Site packages: $SITE_PACKAGES"
+          ls -la $SITE_PACKAGES  # List installed packages
+          ls -la $SITE_PACKAGES/python_for_android  # Check if p4a exists
 
       - name: Prepare build environment  
         run: |  
           source venv/bin/activate  
+          SITE_PACKAGES=$(python -c "import site; print(site.getsitepackages()[0])")
           mkdir -p .buildozer/android/platform  
-          cp -r $HOME/.local/lib/python3.11/site-packages/python_for_android .buildozer/android/platform/python-for-android  
+          cp -r $SITE_PACKAGES/python_for_android .buildozer/android/platform/python-for-android  
 
       - name: Build APK  
         run: |  
