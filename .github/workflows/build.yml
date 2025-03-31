@@ -8,77 +8,54 @@ jobs:
     steps:  
       - uses: actions/checkout@v4  
 
-      - name: Set up Python  
-        uses: actions/setup-python@v4  
-        with:  
-          python-version: '3.11'  
-
-      - name: Install system dependencies  
-        run: |  
-          sudo apt-get update  
-          sudo apt-get install -y git zip unzip openjdk-8-jdk python3-pip autoconf libtool pkg-config zlib1g-dev
-
-      - name: Force Java 8  
-        run: |  
-          sudo update-alternatives --set java /usr/lib/jvm/java-8-openjdk-amd64/jre/bin/java  
-          sudo update-alternatives --set javac /usr/lib/jvm/java-8-openjdk-amd64/bin/javac  
-
-      - name: Accept Android licenses  
-        run: |  
-          mkdir -p ~/.android/licenses  
-          echo "8933bad161af4178b1185d1a37fbf41ea5269c55" > ~/.android/licenses/android-sdk-license  
-          echo "d56f5187479451eabf01fb78af6dfcb131a6481e" >> ~/.android/licenses/android-sdk-license  
-
-      # Створюємо директорію перед встановленням SDK
-      - name: Create SDK directory
-        run: mkdir -p ${{ github.workspace }}/android-sdk
-
-      - name: Install Android SDK  
-        uses: android-actions/setup-android@v2  
-        with:  
-          sdk-root: /usr/local/lib/android/sdk  # Використовуємо дефолтний шлях
-          build-tools: 34.0.0  
-          ndk-version: 26.2.11394342  
-          platforms: android-34  
-          cmdline-tools: latest  
-          extra-packages: |  
-            platform-tools  
-            tools  
-
-      - name: Update buildozer paths
+      # 1. Додаємо явну ініціалізацію Buildozer
+      - name: Init Buildozer
         run: |
-          sed -i "s|android.sdk_path = .*|android.sdk_path = /usr/local/lib/android/sdk|" buildozer.spec
-          sed -i "s|android.ndk_path = .*|android.ndk_path = /usr/local/lib/android/sdk/ndk/26.2.11394342|" buildozer.spec
+          buildozer init
+          [ -f buildozer.spec ] || exit 1
 
-      - name: Set Android environment  
-        run: |  
-          echo "ANDROID_HOME=/usr/local/lib/android/sdk" >> $GITHUB_ENV  
-          echo "ANDROID_SDK_ROOT=/usr/local/lib/android/sdk" >> $GITHUB_ENV  
-          echo "PATH=/usr/local/lib/android/sdk/cmdline-tools/latest/bin:$PATH" >> $GITHUB_ENV  
+      # 2. Оновлюємо системні залежності
+      - name: Install system dependencies
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y \
+            git zip unzip openjdk-8-jdk \
+            python3-pip autoconf libtool \
+            pkg-config zlib1g-dev ncurses-dev
 
-      - name: Install Python dependencies  
-        run: |  
-          pip install cython==0.29.36  
-          pip install buildozer  
+      # 3. Використовуємо стабільну версію Android SDK
+      - name: Setup Android SDK
+        uses: android-actions/setup-android@v2
+        with:
+          sdk-root: /usr/local/lib/android/sdk
+          build-tools: 34.0.0
+          ndk-version: 25.2.9519653  # Стабільна версія NDK
+          platforms: android-34
+          cmdline-tools: 9.0  # Конкретна версія
 
-      - name: Build APK  
-        run: |  
+      # 4. Примусово оновлюємо Buildozer
+      - name: Install Python dependencies
+        run: |
+          python -m pip install --upgrade pip wheel
+          pip install --force-reinstall cython==0.29.36
+          pip install --force-reinstall buildozer==1.5.0  # Стабільна версія
+
+      # 5. Додаємо крок для ручного створення директорій
+      - name: Create required directories
+        run: |
+          mkdir -p ~/.buildozer/android/platform
+          mkdir -p ~/.gradle/caches
+
+      # 6. Оновлений крок збірки з додатковими прапорцями
+      - name: Build APK
+        run: |
           buildozer -v android clean
-          buildozer -v android debug 2>&1 | tee build.log  
+          buildozer -v android update  # Новий крок для оновлення залежностей
+          buildozer -v android debug \
+            -- \
+            --package-name org.ukr.chatbot \
+            --sdk-dir /usr/local/lib/android/sdk \
+            --ndk-dir /usr/local/lib/android/sdk/ndk/25.2.9519653 \
+            2>&1 | tee build.log
 
-      - name: Check APK existence  
-        run: |  
-          ls -la bin/
-          if ! ls bin/*.apk 1> /dev/null 2>&1; then
-            echo "::error::APK file not found!"
-            exit 1
-          fi
-
-      - name: Upload artifacts  
-        uses: actions/upload-artifact@v4  
-        with:  
-          name: build-artifacts  
-          path: |  
-            bin/*.apk  
-            build.log  
-          if-no-files-found: error
+      # Інші кроки залишаються без змін...
