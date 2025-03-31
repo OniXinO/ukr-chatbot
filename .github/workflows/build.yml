@@ -8,54 +8,78 @@ jobs:
     steps:  
       - uses: actions/checkout@v4  
 
-      # 1. Додаємо явну ініціалізацію Buildozer
-      - name: Init Buildozer
-        run: |
-          buildozer init
-          [ -f buildozer.spec ] || exit 1
+      - name: Set up Python  
+        uses: actions/setup-python@v4  
+        with:  
+          python-version: '3.11'  
 
-      # 2. Оновлюємо системні залежності
-      - name: Install system dependencies
-        run: |
-          sudo apt-get update
+      - name: Install system dependencies  
+        run: |  
+          sudo apt-get update  
           sudo apt-get install -y \
             git zip unzip openjdk-8-jdk \
             python3-pip autoconf libtool \
-            pkg-config zlib1g-dev ncurses-dev
+            pkg-config zlib1g-dev ncurses-dev \
+            libssl-dev libffi-dev  
 
-      # 3. Використовуємо стабільну версію Android SDK
-      - name: Setup Android SDK
-        uses: android-actions/setup-android@v2
-        with:
-          sdk-root: /usr/local/lib/android/sdk
-          build-tools: 34.0.0
-          ndk-version: 25.2.9519653  # Стабільна версія NDK
-          platforms: android-34
-          cmdline-tools: 9.0  # Конкретна версія
+      - name: Install Python tools  
+        run: |  
+          python -m pip install --upgrade pip wheel  
+          pip install virtualenv  
 
-      # 4. Примусово оновлюємо Buildozer
-      - name: Install Python dependencies
-        run: |
-          python -m pip install --upgrade pip wheel
-          pip install --force-reinstall cython==0.29.36
-          pip install --force-reinstall buildozer==1.5.0  # Стабільна версія
+      - name: Create and activate virtual environment  
+        run: |  
+          virtualenv venv  
+          echo "VIRTUAL_ENV=venv" >> $GITHUB_ENV  
+          echo "PATH=$GITHUB_WORKSPACE/venv/bin:$PATH" >> $GITHUB_ENV  
 
-      # 5. Додаємо крок для ручного створення директорій
-      - name: Create required directories
-        run: |
-          mkdir -p ~/.buildozer/android/platform
-          mkdir -p ~/.gradle/caches
+      - name: Install Buildozer and dependencies  
+        run: |  
+          pip install --upgrade cython==0.29.36  
+          pip install buildozer==1.5.0  
+          buildozer --version  
 
-      # 6. Оновлений крок збірки з додатковими прапорцями
-      - name: Build APK
-        run: |
-          buildozer -v android clean
-          buildozer -v android update  # Новий крок для оновлення залежностей
-          buildozer -v android debug \
-            -- \
-            --package-name org.ukr.chatbot \
-            --sdk-dir /usr/local/lib/android/sdk \
-            --ndk-dir /usr/local/lib/android/sdk/ndk/25.2.9519653 \
-            2>&1 | tee build.log
+      - name: Setup Android SDK  
+        uses: android-actions/setup-android@v2  
+        with:  
+          sdk-root: ${{ github.workspace }}/android-sdk  
+          build-tools: 34.0.0  
+          ndk-version: 25.2.9519653  
+          platforms: android-34  
+          cmdline-tools: 9.0  
+          extra-packages: |  
+            platform-tools  
+            tools  
 
-      # Інші кроки залишаються без змін...
+      - name: Configure environment  
+        run: |  
+          echo "ANDROID_HOME=${{ github.workspace }}/android-sdk" >> $GITHUB_ENV  
+          echo "ANDROID_SDK_ROOT=${{ github.workspace }}/android-sdk" >> $GITHUB_ENV  
+          echo "PATH=${{ github.workspace }}/android-sdk/cmdline-tools/9.0/bin:$PATH" >> $GITHUB_ENV  
+          
+          # Оновлюємо buildozer.spec
+          sed -i "s|android.sdk_path = .*|android.sdk_path = ${{ github.workspace }}/android-sdk|" buildozer.spec  
+          sed -i "s|android.ndk_path = .*|android.ndk_path = ${{ github.workspace }}/android-sdk/ndk/25.2.9519653|" buildozer.spec  
+
+      - name: Build APK  
+        run: |  
+          buildozer -v android clean  
+          buildozer -v android update  
+          buildozer -v android debug 2>&1 | tee build.log  
+
+      - name: Verify artifacts  
+        run: |  
+          ls -la bin/  
+          if [ ! -f bin/*.apk ]; then  
+            echo "::error::APK file missing!"  
+            exit 1  
+          fi  
+
+      - name: Upload artifacts  
+        uses: actions/upload-artifact@v4  
+        with:  
+          name: app-artifacts  
+          path: |  
+            bin/*.apk  
+            build.log  
+          if-no-files-found: error  
