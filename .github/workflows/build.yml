@@ -21,6 +21,8 @@ jobs:
           echo "ANDROID_HOME: $ANDROID_HOME"
           echo "ANDROID_NDK_HOME: $ANDROID_NDK_HOME"
           ls -la $ANDROID_HOME || echo "Android SDK not found"
+          python --version
+          pip --version
 
       - name: Install system dependencies  
         run: |  
@@ -35,9 +37,9 @@ jobs:
         uses: android-actions/setup-android@v2  
         with:  
           sdk-root: /usr/local/lib/android/sdk  
-          build-tools: 34.0.0  
+          build-tools: 33.0.2  
           ndk-version: 25.2.9519653  
-          platforms: android-34  
+          platforms: android-33  
           cmdline-tools: 9.0  
           extra-packages: |  
             platform-tools  
@@ -55,6 +57,7 @@ jobs:
           python -m venv venv  
           source venv/bin/activate  
           pip install cython==0.29.36  
+          pip install kivy==2.1.0
           pip install buildozer==1.5.0  
           # Install python-for-android dependencies
           pip install appdirs colorama jinja2 sh toml
@@ -67,25 +70,38 @@ jobs:
           source /home/runner/work/ukr-chatbot/ukr-chatbot/venv/bin/activate
           pip install -e .
           
-      - name: Build APK  
+      - name: List files before build
+        run: |
+          ls -la
+          cat buildozer.spec
+          cat main.py
+
+      - name: Build APK with debug logging
         run: |  
           source venv/bin/activate  
-          buildozer -v android clean  
-          buildozer -v android debug 2>&1 | tee build.log  
+          # Try clean build with extremely verbose output
+          buildozer -v -v android debug 2>&1 | tee build.log  
 
       - name: Display Build Log Tail
         if: always()
         run: |
           if [ -f build.log ]; then
-            echo "Last 300 lines of build log:"
-            tail -n 300 build.log
+            echo "Last 500 lines of build log:"
+            tail -n 500 build.log
           else
             echo "Build log not found"
           fi
 
+      - name: Check filesystem after build
+        if: always()
+        run: |
+          echo "Checking .buildozer directory:"
+          find .buildozer -type f -name "*.apk" | xargs ls -la || echo "No APK found in .buildozer"
+          ls -la bin/ || echo "Bin directory doesn't exist"
+          find . -name "*.apk" | xargs ls -la || echo "No APK found anywhere"
+
       - name: Check for APK
         run: |
-          ls -la bin/ || echo "Bin directory doesn't exist"
           if [ ! -f bin/*.apk ]; then  
             echo "::error::APK file not found!"  
             exit 1  
@@ -99,3 +115,4 @@ jobs:
           path: |  
             bin/*.apk  
             build.log  
+            .buildozer/android/app/build/outputs/**/*.apk
